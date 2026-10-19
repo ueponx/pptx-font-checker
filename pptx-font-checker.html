@@ -1,0 +1,1071 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>pptx フォント診断</title>
+<style>
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #f0eee9;
+  --text: #1f1d1a;
+  --muted: #6b665e;
+  --line: #e2ded6;
+  --accent: #2f5d8a;
+  --ok: #2e7d4f;
+  --ok-bg: #e5f3ea;
+  --warn: #9a6200;
+  --warn-bg: #fdf1dc;
+  --bad: #b3261e;
+  --bad-bg: #fbe4e2;
+  --info: #4a5a6b;
+  --info-bg: #e9eef3;
+  --radius: 12px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161514;
+    --surface: #201f1d;
+    --surface-2: #2a2826;
+    --text: #ece9e3;
+    --muted: #a39d93;
+    --line: #3a3733;
+    --accent: #8db7e0;
+    --ok: #7fcf9c;
+    --ok-bg: #1e3326;
+    --warn: #f0b860;
+    --warn-bg: #3a2c14;
+    --bad: #f2948d;
+    --bad-bg: #3d1d1b;
+    --info: #b3c2d1;
+    --info-bg: #252d36;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "游ゴシック", "Yu Gothic", YuGothic, "ヒラギノ角ゴシック", "Hiragino Sans", "Meiryo", system-ui, sans-serif;
+  font-weight: 500;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: 0.02em; }
+header p { margin: 0; color: var(--muted); }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.pills li { font-size: 0.8rem; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+
+.drop {
+  display: block;
+  margin: 24px 0 8px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 36px 16px;
+  text-align: center;
+  transition: border-color .15s, background .15s;
+  cursor: pointer;
+}
+.drop:hover, .drop:focus-visible { border-color: var(--accent); outline: none; }
+.drop.over { border-color: var(--accent); background: var(--surface-2); }
+.drop strong { display: block; font-size: 1.1rem; }
+.drop span { color: var(--muted); font-size: 0.9rem; }
+.drop input { display: none; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 36px; }
+#status { color: var(--muted); font-size: 0.9rem; }
+button {
+  font: inherit; font-size: 0.85rem;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  border-radius: 8px; padding: 5px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button[hidden] { display: none; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 20px; overflow: hidden; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.card-head h2 { font-size: 1.05rem; margin: 0; word-break: break-all; flex: 1 1 260px; }
+.meta { width: 100%; color: var(--muted); font-size: 0.82rem; }
+.verdict { font-weight: 700; font-size: 0.9rem; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+.v-ok { color: var(--ok); background: var(--ok-bg); }
+.v-warn { color: var(--warn); background: var(--warn-bg); }
+.v-bad { color: var(--bad); background: var(--bad-bg); }
+.v-info { color: var(--info); background: var(--info-bg); }
+
+section.block { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+section.block:last-child { border-bottom: 0; }
+section.block h3 { font-size: 0.95rem; margin: 0 0 10px; color: var(--muted); font-weight: 700; letter-spacing: 0.04em; }
+
+.finding { border-left: 4px solid var(--line); padding: 8px 12px; margin: 0 0 10px; border-radius: 0 8px 8px 0; background: var(--surface-2); }
+.finding:last-child { margin-bottom: 0; }
+.finding.l-bad { border-left-color: var(--bad); }
+.finding.l-warn { border-left-color: var(--warn); }
+.finding.l-info { border-left-color: var(--info); }
+.finding.l-ok { border-left-color: var(--ok); }
+.finding b { display: block; }
+.finding p { margin: 2px 0 0; font-size: 0.9rem; }
+.finding .fix { color: var(--muted); }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 700; font-size: 0.8rem; }
+tr:last-child td { border-bottom: 0; }
+td.name { font-weight: 700; overflow-wrap: anywhere; min-width: 8em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tag { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.where { color: var(--muted); font-size: 0.82rem; }
+.empty { color: var(--muted); font-size: 0.9rem; margin: 0; }
+.theme-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 0.9rem; }
+.theme-grid dt { color: var(--muted); }
+.theme-grid dd { margin: 0; font-weight: 700; word-break: break-all; }
+.scroll { overflow-x: auto; }
+
+.error { padding: 16px 18px; }
+.repair select { font: inherit; font-size: 0.88rem; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.repair input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.repair .opt { display: block; margin: 12px 0 0; font-size: 0.9rem; }
+.repair-actions { margin-top: 14px; }
+button.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); font-weight: 700; padding: 8px 16px; }
+button.primary:hover { opacity: 0.9; }
+button:disabled { opacity: 0.5; cursor: default; }
+.repair-status { margin: 10px 0 0; font-size: 0.9rem; }
+.repair-status:empty { display: none; }
+
+footer { margin-top: 40px; color: var(--muted); font-size: 0.82rem; }
+footer h2 { font-size: 0.9rem; margin: 0 0 6px; color: var(--text); }
+footer ul { margin: 0; padding-left: 1.2em; }
+
+@media (max-width: 560px) {
+  .wrap { padding-top: 20px; }
+  th.hide-sm, td.hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>pptx フォント診断</h1>
+    <p>Macで文字化けするpptxの原因になりやすい「Macにないフォント」や「フォント埋め込み」をチェックして、必要ならフォントを置き換えた修正版を別名で保存できます。</p>
+    <ul class="pills" aria-label="特徴">
+      <li>オフラインで動作</li>
+      <li>ファイルは外部に送信されません</li>
+      <li>複数ファイルOK</li>
+      <li>元のファイルは変更しません</li>
+    </ul>
+  </header>
+
+  <label class="drop" id="drop" tabindex="0">
+    <strong>pptx ファイルをここにドロップ</strong>
+    <span>またはクリックして選択</span>
+    <input type="file" id="file" accept=".pptx,.potx,.ppsx,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple>
+  </label>
+
+  <div class="toolbar">
+    <div id="status" role="status" aria-live="polite"></div>
+    <button type="button" id="clear" hidden>結果をクリア</button>
+  </div>
+
+  <div id="results"></div>
+
+  <footer>
+    <h2>判定の見方</h2>
+    <ul>
+      <li><b>要修正</b> サブセット埋め込みなど、文字化けの原因になりやすい設定が見つかりました。</li>
+      <li><b>要注意</b> Macにない可能性が高い日本語フォント、Googleスライド由来のWebフォント、フォントの埋め込みのいずれかが見つかりました。</li>
+      <li><b>問題なし</b> 文字化けの原因になりやすい設定は見つかりませんでした。</li>
+    </ul>
+    <p>フォントの分類は代表的なフォント名による目安です。最終的には配布先と同じOSで開いて確認してください。このページには通信を禁止する設定が入っており、選んだファイルはブラウザの中だけで処理されます。</p>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ===== フォント分類データ ===== */
+const norm = (s) => s.toLowerCase().normalize("NFKC").replace(/[\s　_\-]/g, "");
+
+const CAT = {
+  safe:    { label: "両OS標準",       cls: "v-ok",   level: "ok" },
+  web:     { label: "Webフォント",    cls: "v-warn", level: "warn" },
+  office:  { label: "Office同梱",     cls: "v-ok",   level: "ok" },
+  winjp:   { label: "Windows日本語",  cls: "v-warn", level: "warn" },
+  win:     { label: "Windows向け",    cls: "v-info", level: "info" },
+  mac:     { label: "Mac向け",        cls: "v-info", level: "info" },
+  unknown: { label: "未登録",         cls: "v-info", level: "info" },
+};
+
+const SAFE = [
+  "游ゴシック", "游ゴシック体", "游ゴシックmedium", "游ゴシック体medium", "yugothic", "yugothicmedium",
+  "游明朝", "游明朝体", "yumincho", "游明朝demibold", "yuminchodemibold",
+  "arial", "arialblack", "arialnarrow", "timesnewroman", "couriernew", "verdana", "georgia",
+  "trebuchetms", "tahoma", "impact", "comicsansms", "symbol", "wingdings", "wingdings2", "wingdings3", "webdings",
+];
+// Windowsにだけ入っている日本語フォント。Macにないと、日本語を持たないフォントで代わりに描かれて□(豆腐)になることがある
+// Office for Macと一緒にインストールされる日本語フォント(macOS本体にはないがPowerPointでは表示できる)
+const OFFICE = [
+  "メイリオ", "meiryo", "msゴシック", "msgothic", "mspゴシック", "mspgothic",
+  "ms明朝", "msmincho", "msp明朝", "mspmincho",
+];
+const WINJP_EXACT = [
+  "meiryoui", "メイリオui", "msuiゴシック", "msuigothic",
+  "游ゴシックlight", "yugothiclight", "yugothicui", "游ゴシックui", "yugothicuisemibold", "yugothicuilight",
+];
+const WINJP_PREFIX = ["bizud", "udデジタル教科書体", "uddigikyokasho", "hg", "創英"];
+// Windowsにだけ入っている英数字用のフォント
+const WIN_EXACT = [
+  "calibri", "calibrilight", "cambria", "cambriamath", "candara",
+  "consolas", "constantia", "corbel", "segoeui", "segoeuisemibold", "segoeuilight", "segoeuisymbol", "segoeuiemoji",
+  "aptos", "aptosdisplay", "aptosnarrow",
+];
+const WIN_PREFIX = ["segoe"];
+const MAC_EXACT = [
+  "osaka", "osaka等幅", "helvetica", "helveticaneue", "applesdgothicneo", "avenir", "avenirnext", "menlo",
+  "applesystemuifont", ".applesystemuifont", "sfpro", "sfprotext", "sfprodisplay", "筑紫aオールド明朝", "クレー", "klee",
+];
+const MAC_PREFIX = ["ヒラギノ", "hiragino", "筑紫", "游教科書体"];
+const WEB_EXACT = [
+  "roboto", "robotoslab", "robotomono", "robotocondensed", "opensans", "montserrat", "lato", "poppins", "oswald",
+  "raleway", "sourcesanspro", "sourcesans3", "sourceserifpro", "playfairdisplay", "merriweather", "nunito", "nunitosans",
+  "inter", "comfortaa", "lexend", "ptsans", "ptserif", "ubuntu", "quicksand", "caveat", "pacifico", "lobster",
+  "amaticsc", "spacemono", "worksans", "dmsans", "firasans", "karla", "rubik", "manrope", "barlow", "josefinsans",
+  "cabin", "oxygen", "mulish", "bebasneue", "anton", "economica", "spectral", "lora", "alegreya", "proximanova",
+  "stick", "kosugi", "kosugimaru", "sawarabigothic", "sawarabimincho", "kleeone", "murecho", "kiwimaru",
+  "dotgothic16", "pottaone", "reggaeone", "rocknrollone", "rampartone", "trainone", "yuseimagic", "hachimarupop",
+  "delagothicone", "mochiypopone", "mochiypoppone", "newsreader", "googlesans", "productsans",
+];
+const WEB_PREFIX = ["noto", "mplus", "zenkaku", "zenmaru", "zenold", "zenantique", "zenkurenaido", "shippori", "kaisei", "yuji", "sawarabi", "kosugi", "kiwi"];
+
+function classify(name) {
+  const n = norm(name);
+  if (SAFE.map(norm).includes(n)) return "safe";
+  if (OFFICE.map(norm).includes(n)) return "office";
+  if (WINJP_EXACT.map(norm).includes(n)) return "winjp";
+  if (WIN_EXACT.map(norm).includes(n)) return "win";
+  if (MAC_EXACT.map(norm).includes(n)) return "mac";
+  if (WEB_EXACT.map(norm).includes(n)) return "web";
+  if (WINJP_PREFIX.some((p) => n.startsWith(norm(p)))) return "winjp";
+  if (WIN_PREFIX.some((p) => n.startsWith(norm(p)))) return "win";
+  if (MAC_PREFIX.some((p) => n.startsWith(norm(p)))) return "mac";
+  if (WEB_PREFIX.some((p) => n.startsWith(norm(p)))) return "web";
+  return "unknown";
+}
+
+/* ===== zip 読み込み (ブラウザ標準機能のみ) ===== */
+class UserError extends Error {}
+
+function readZip(buf) {
+  const u8 = new Uint8Array(buf);
+  const dv = new DataView(buf);
+  if (u8.length >= 4 && u8[0] === 0xD0 && u8[1] === 0xCF && u8[2] === 0x11 && u8[3] === 0xE0) {
+    throw new UserError("パスワード付きのファイル、または古い形式(.ppt)のファイルのため中身を確認できません。パスワードを外すか、pptx形式で保存し直してから試してください。");
+  }
+  let eocd = -1;
+  const stop = Math.max(0, u8.length - 65557);
+  for (let i = u8.length - 22; i >= stop; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new UserError("pptxファイルとして読み込めませんでした。ファイルが壊れているか、pptx以外のファイルの可能性があります。");
+  let count = dv.getUint16(eocd + 10, true);
+  let cdOff = dv.getUint32(eocd + 16, true);
+  if (cdOff === 0xFFFFFFFF || count === 0xFFFF) {
+    const loc = eocd - 20;
+    if (loc >= 0 && dv.getUint32(loc, true) === 0x07064b50) {
+      const z = Number(dv.getBigUint64(loc + 8, true));
+      if (dv.getUint32(z, true) === 0x06064b50) {
+        count = Number(dv.getBigUint64(z + 32, true));
+        cdOff = Number(dv.getBigUint64(z + 48, true));
+      }
+    }
+  }
+  const dec = new TextDecoder("utf-8");
+  const entries = new Map();
+  const order = [];
+  let p = cdOff;
+  for (let k = 0; k < count && p + 46 <= u8.length; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const flags = dv.getUint16(p + 8, true);
+    const method = dv.getUint16(p + 10, true);
+    const time = dv.getUint16(p + 12, true);
+    const date = dv.getUint16(p + 14, true);
+    const crc = dv.getUint32(p + 16, true);
+    let csize = dv.getUint32(p + 20, true);
+    let usize = dv.getUint32(p + 24, true);
+    const nl = dv.getUint16(p + 28, true);
+    const el = dv.getUint16(p + 30, true);
+    const cl = dv.getUint16(p + 32, true);
+    let lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nl));
+    let e = p + 46 + nl;
+    const eEnd = e + el;
+    while (e + 4 <= eEnd) {
+      const id = dv.getUint16(e, true);
+      const sz = dv.getUint16(e + 2, true);
+      if (id === 0x0001) {
+        let q = e + 4;
+        if (usize === 0xFFFFFFFF) { usize = Number(dv.getBigUint64(q, true)); q += 8; }
+        if (csize === 0xFFFFFFFF) { csize = Number(dv.getBigUint64(q, true)); q += 8; }
+        if (lho === 0xFFFFFFFF) { lho = Number(dv.getBigUint64(q, true)); q += 8; }
+      }
+      e += 4 + sz;
+    }
+    entries.set(name, { name, flags, method, csize, usize, lho, crc, time, date });
+    order.push(name);
+    p += 46 + nl + el + cl;
+  }
+  if (!entries.size) throw new UserError("pptxファイルの中身が見つかりませんでした。");
+  return { u8, dv, entries, order };
+}
+
+// 圧縮されたままのデータを取り出す
+function rawEntry(zip, en) {
+  if (en.flags & 1) throw new UserError("暗号化されたデータが含まれているため確認できません。");
+  const { u8, dv } = zip;
+  const lh = en.lho;
+  if (dv.getUint32(lh, true) !== 0x04034b50) throw new UserError("ファイル内部の構造が壊れています。");
+  const start = lh + 30 + dv.getUint16(lh + 26, true) + dv.getUint16(lh + 28, true);
+  return u8.subarray(start, start + en.csize);
+}
+
+async function readEntry(zip, name) {
+  const en = zip.entries.get(name);
+  if (!en) return null;
+  const data = rawEntry(zip, en);
+  if (en.method === 0) return data;
+  if (en.method === 8) {
+    const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  throw new UserError("対応していない圧縮形式が使われています。");
+}
+
+async function readXml(zip, name) {
+  const bytes = await readEntry(zip, name);
+  if (!bytes) return null;
+  const doc = new DOMParser().parseFromString(new TextDecoder("utf-8").decode(bytes), "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) return null;
+  return doc;
+}
+
+const R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const byLocal = (node, local) => Array.from(node.getElementsByTagNameNS("*", local));
+
+function resolvePath(fromPart, target) {
+  if (target.startsWith("/")) return target.slice(1);
+  const parts = fromPart.split("/");
+  parts.pop();
+  for (const seg of target.split("/")) {
+    if (seg === "..") parts.pop();
+    else if (seg && seg !== ".") parts.push(seg);
+  }
+  return parts.join("/");
+}
+function relsPathOf(part) {
+  const i = part.lastIndexOf("/");
+  return part.slice(0, i + 1) + "_rels/" + part.slice(i + 1) + ".rels";
+}
+async function readRels(zip, part) {
+  const doc = await readXml(zip, relsPathOf(part));
+  const map = new Map();
+  if (!doc) return map;
+  for (const r of byLocal(doc, "Relationship")) {
+    if (r.getAttribute("TargetMode") === "External") continue;
+    map.set(r.getAttribute("Id"), { type: r.getAttribute("Type") || "", target: resolvePath(part, r.getAttribute("Target") || "") });
+  }
+  return map;
+}
+
+/* ===== 修正 (フォントの置き換えとzipの組み直し) ===== */
+const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+// 置き換え先の候補。名前はPowerPointがファイルに書き込むときの表記に合わせる
+const REPLACE_OPTIONS = ["メイリオ", "游ゴシック", "ＭＳ Ｐゴシック", "ＭＳ Ｐ明朝", "游明朝", "Arial"];
+
+function defaultReplacement(name, cat) {
+  const n = norm(name);
+  if (/明朝|mincho|serif|教科書/.test(n)) return "ＭＳ Ｐ明朝";
+  if (cat === "winjp" || /jp|ゴシック|gothic|mplus|zen|kosugi|sawarabi|kiwi|shippori|kaisei|yuji|klee|murecho|dotgothic|potta|reggae|rocknroll|rampart|train|yusei|hachimaru|delagothic|mochiy|biz|丸/.test(n)) return "メイリオ";
+  return "Arial";
+}
+
+const xmlEsc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const xmlUnesc = (t) => t.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d)).replace(/&amp;/g, "&");
+
+// typeface属性だけを書き換える(ほかの部分は1文字も変えない)
+function replaceTypefaces(xml, map) {
+  let changed = 0;
+  const out = xml.replace(/<((?:[\w.-]+:)?(?:latin|ea|cs|sym|buFont|font))\b([^>]*?)(\/?)>/g, (m, tag, attrs, close) => {
+    const tm = /\btypeface="([^"]*)"/.exec(attrs);
+    if (!tm) return m;
+    const to = map.get(xmlUnesc(tm[1]));
+    if (!to) return m;
+    changed++;
+    // 元のフォント固有の情報(panoseなど)は残すと別のフォントと誤認されることがあるので外す
+    const a = attrs.replace(/\btypeface="[^"]*"/, `typeface="${xmlEsc(to)}"`).replace(/\s(?:panose|pitchFamily|charset)="[^"]*"/g, "");
+    return `<${tag}${a}${close}>`;
+  });
+  return { out, changed };
+}
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function deflateRaw(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+function writeZip(items) {
+  const enc = new TextEncoder();
+  const parts = [];
+  const central = [];
+  let offset = 0;
+  for (const it of items) {
+    const nameBytes = enc.encode(it.name);
+    const utf8 = /[^\x00-\x7f]/.test(it.name) ? 0x0800 : 0;
+    const flags = (it.flags & ~0x0008 & ~0x0800) | utf8;
+    if (it.csize > 0xFFFFFFFE || it.usize > 0xFFFFFFFE || offset > 0xFFFFFFFE) throw new UserError("ファイルが大きすぎるため修正できません。");
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, flags, true);
+    lh.setUint16(8, it.method, true); lh.setUint16(10, it.time, true); lh.setUint16(12, it.date, true);
+    lh.setUint32(14, it.crc, true); lh.setUint32(18, it.csize, true); lh.setUint32(22, it.usize, true);
+    lh.setUint16(26, nameBytes.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), nameBytes, it.data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, flags, true);
+    ch.setUint16(10, it.method, true); ch.setUint16(12, it.time, true); ch.setUint16(14, it.date, true);
+    ch.setUint32(16, it.crc, true); ch.setUint32(20, it.csize, true); ch.setUint32(24, it.usize, true);
+    ch.setUint16(28, nameBytes.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), nameBytes);
+    offset += 30 + nameBytes.length + it.data.length;
+  }
+  if (items.length > 0xFFFE) throw new UserError("ファイル内の要素が多すぎるため修正できません。");
+  const cdSize = central.reduce((n, b) => n + b.length, 0);
+  const eocd = new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0, 0x06054b50, true); eocd.setUint16(8, items.length, true); eocd.setUint16(10, items.length, true);
+  eocd.setUint32(12, cdSize, true); eocd.setUint32(16, offset, true);
+  const all = [...parts, ...central, new Uint8Array(eocd.buffer)];
+  const out = new Uint8Array(all.reduce((n, b) => n + b.length, 0));
+  let pos = 0;
+  for (const b of all) { out.set(b, pos); pos += b.length; }
+  return out;
+}
+
+// map 元のフォント名 -> 置き換え先、removeEmbedded 埋め込みフォントを外すか
+async function repairPptx(r, map, removeEmbedded) {
+  const zip = r.zip;
+  const dec = new TextDecoder("utf-8");
+  const enc = new TextEncoder();
+  const items = [];
+  let replaced = 0;
+  for (const name of zip.order) {
+    const en = zip.entries.get(name);
+    if (removeEmbedded && /^ppt\/fonts\//i.test(name)) continue;
+    let text = null;
+    const isXml = /\.(xml|rels)$/i.test(name);
+    if (isXml && /^ppt\//i.test(name)) {
+      const original = dec.decode(await readEntry(zip, name));
+      text = original;
+      if (name !== r.presPart && !/\.rels$/i.test(name) && map.size) {
+        const res = replaceTypefaces(text, map);
+        text = res.out; replaced += res.changed;
+      }
+      if (removeEmbedded && name === r.presPart) {
+        text = text.replace(/<(\w+:)?embeddedFontLst\b[\s\S]*?<\/\1?embeddedFontLst>/, "").replace(/<(\w+:)?embeddedFontLst\s*\/>/, "")
+          .replace(/\s(?:saveSubsetFonts|embedTrueTypeFonts)="[^"]*"/g, "");
+      }
+      if (removeEmbedded && name === relsPathOf(r.presPart)) {
+        text = text.replace(/<Relationship\b[^>]*Type="[^"]*\/relationships\/font"[^>]*\/>/g, "");
+      }
+      if (text === original) text = null;
+    }
+    if (text === null) {
+      items.push({ name, flags: en.flags, method: en.method, time: en.time, date: en.date, crc: en.crc, csize: en.csize, usize: en.usize, data: rawEntry(zip, en) });
+    } else {
+      const raw = enc.encode(text);
+      const data = await deflateRaw(raw);
+      items.push({ name, flags: en.flags, method: 8, time: en.time, date: en.date, crc: crc32(raw), csize: data.length, usize: raw.length, data });
+    }
+  }
+  return { bytes: writeZip(items), replaced };
+}
+
+// 保存ダイアログを先に開く(ユーザー操作の直後でないと開けないため)
+async function pickSaveTarget(suggestedName) {
+  if (typeof window.showSaveFilePicker !== "function") return { kind: "download" };
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName,
+      types: [{ description: "PowerPoint プレゼンテーション", accept: { [PPTX_MIME]: [".pptx"] } }],
+    });
+    return { kind: "handle", handle };
+  } catch (e) {
+    if (e && e.name === "AbortError") return { kind: "cancel" };
+    return { kind: "download" };
+  }
+}
+async function writeToTarget(target, bytes, suggestedName) {
+  const blob = new Blob([bytes], { type: PPTX_MIME });
+  if (target.kind === "handle") {
+    const w = await target.handle.createWritable();
+    await w.write(blob);
+    await w.close();
+    return target.handle.name;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = suggestedName;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return suggestedName;
+}
+
+/* ===== 解析本体 ===== */
+async function analyze(file) {
+  const buf = await file.arrayBuffer();
+  const zip = readZip(buf);
+
+  // presentation.xml の場所
+  let presPart = "ppt/presentation.xml";
+  const rootRels = await readRels(zip, "");
+  for (const r of rootRels.values()) if (r.type.endsWith("/officeDocument")) presPart = r.target;
+  const pres = await readXml(zip, presPart);
+  if (!pres) {
+    throw new UserError(zip.entries.has(presPart)
+      ? "ファイル内部のプレゼンテーション情報が壊れているため確認できません。PowerPointで開いて保存し直してから試してください。"
+      : "PowerPointのファイルではないようです。WordやExcelのファイルを選んでいないか確認してください。");
+  }
+  const presRels = await readRels(zip, presPart);
+  const root = pres.documentElement;
+
+  // スライド順
+  const slideNo = new Map();
+  byLocal(pres, "sldId").forEach((s, i) => {
+    const rel = presRels.get(s.getAttributeNS(R_NS, "id") || s.getAttribute("r:id"));
+    if (rel) slideNo.set(rel.target, i + 1);
+  });
+
+  // 埋め込みフォント
+  const truthy = (v) => v === "1" || v === "true";
+  const subset = truthy(root.getAttribute("saveSubsetFonts"));
+  const embedFlag = truthy(root.getAttribute("embedTrueTypeFonts"));
+  const embedded = [];
+  const listed = new Set();
+  for (const ef of byLocal(pres, "embeddedFont")) {
+    const fontEl = byLocal(ef, "font")[0];
+    const name = fontEl ? fontEl.getAttribute("typeface") || "(名前なし)" : "(名前なし)";
+    const styles = [];
+    let bytes = 0;
+    for (const [tag, label] of [["regular", "標準"], ["bold", "太字"], ["italic", "斜体"], ["boldItalic", "太字斜体"]]) {
+      const el = byLocal(ef, tag)[0];
+      if (!el) continue;
+      styles.push(label);
+      const rel = presRels.get(el.getAttributeNS(R_NS, "id") || el.getAttribute("r:id"));
+      if (rel) { listed.add(rel.target); const en = zip.entries.get(rel.target); if (en) bytes += en.usize; }
+    }
+    embedded.push({ name, styles, bytes });
+  }
+  const fontFiles = [...zip.entries.keys()].filter((n) => /^ppt\/fonts\//i.test(n) && !n.endsWith("/"));
+  const orphanFiles = fontFiles.filter((n) => !listed.has(n));
+  const fontBytes = fontFiles.reduce((s, n) => s + zip.entries.get(n).usize, 0);
+
+  // テーマ(スライド用、ノート用、配布資料用で別々のテーマを持つことがある)
+  const themes = [];
+  const themeParts = [...zip.entries.keys()].filter((n) => /^ppt\/theme\/[^/]+\.xml$/i.test(n)).sort(naturalSort);
+  const themeRole = new Map(); // theme part -> "スライド" | "ノート" | "配布資料"
+  const roleTheme = {};        // role -> 最初に見つかった theme part
+  for (const [dir, role] of [["slideMasters", "スライド"], ["notesMasters", "ノート"], ["handoutMasters", "配布資料"]]) {
+    const parts = [...zip.entries.keys()].filter((n) => new RegExp(`^ppt/${dir}/[^/]+\\.xml$`, "i").test(n)).sort(naturalSort);
+    for (const mp of parts) {
+      const mrels = await readRels(zip, mp);
+      for (const r of mrels.values()) {
+        if (!r.type.endsWith("/theme")) continue;
+        if (!themeRole.has(r.target)) themeRole.set(r.target, role);
+        if (!roleTheme[role]) roleTheme[role] = r.target;
+      }
+    }
+  }
+  const mainThemePart = roleTheme["スライド"] || null;
+  for (const tp of themeParts) {
+    const doc = await readXml(zip, tp);
+    if (!doc) continue;
+    const pick = (kind) => {
+      const el = byLocal(doc, kind)[0];
+      if (!el) return null;
+      const child = (local) => {
+        const c = Array.from(el.children).find((x) => x.localName === local);
+        return c ? (c.getAttribute("typeface") || "") : "";
+      };
+      const jpan = Array.from(el.children).find((x) => x.localName === "font" && x.getAttribute("script") === "Jpan");
+      return { latin: child("latin"), ea: child("ea"), cs: child("cs"), jpan: jpan ? jpan.getAttribute("typeface") || "" : "" };
+    };
+    const major = pick("majorFont");
+    const minor = pick("minorFont");
+    if (major || minor) themes.push({ part: tp, major, minor, main: tp === mainThemePart, role: themeRole.get(tp) || "スライド" });
+  }
+  const mainTheme = themes.find((t) => t.main) || themes.find((t) => t.role === "スライド") || themes[0] || null;
+  const themeByRole = (role) => themes.find((t) => t.part === roleTheme[role]) || mainTheme;
+  const themeRef = (ref, theme) => {
+    if (!theme) return "";
+    const m = /^\+(mj|mn)-(lt|ea|cs)$/.exec(ref);
+    if (!m) return "";
+    const set = m[1] === "mj" ? theme.major : theme.minor;
+    if (!set) return "";
+    const key = { lt: "latin", ea: "ea", cs: "cs" }[m[2]];
+    let v = set[key];
+    if (m[2] === "ea" && !v) v = set.jpan;
+    return v;
+  };
+
+  // 使用フォントの集計
+  // kinds はどの用途の指定か。impact はスライドの日本語表示に影響する指定があるか
+  const usage = new Map();
+  const add = (name, where, slide, kind, impact) => {
+    if (!name) return;
+    if (!usage.has(name)) usage.set(name, { count: 0, where: new Set(), slides: new Set(), kinds: new Set(), impact: false });
+    const u = usage.get(name);
+    u.count++;
+    if (slide) u.slides.add(slide); else u.where.add(where);
+    u.kinds.add(kind);
+    if (impact) u.impact = true;
+  };
+  for (const t of themes) {
+    const label = t.role === "スライド" ? "テーマ" : `テーマ(${t.role})`;
+    for (const set of [t.major, t.minor]) {
+      if (!set) continue;
+      add(set.latin, label, null, "英数字", false);
+      // 日本語は ea が空のときだけ script="Jpan" の指定が使われる
+      add(set.ea || set.jpan, label, null, "日本語", t.role === "スライド");
+    }
+  }
+  const KIND = { latin: "英数字", ea: "日本語", cs: "その他の言語", sym: "記号", buFont: "箇条書き記号" };
+  const scanTargets = [...zip.entries.keys()].filter((n) => /^ppt\/.+\.xml$/i.test(n) && !/\/_rels\//.test(n) && !/^ppt\/theme\//i.test(n) && n !== presPart);
+  const whereOf = (n) => {
+    if (/^ppt\/slides\//i.test(n)) return null;
+    if (/^ppt\/slideLayouts\//i.test(n)) return "レイアウト";
+    if (/^ppt\/slideMasters\//i.test(n)) return "スライドマスター";
+    if (/^ppt\/notesSlides\//i.test(n)) return "ノート";
+    if (/^ppt\/notesMasters\//i.test(n)) return "ノートマスター";
+    if (/^ppt\/handoutMasters\//i.test(n)) return "配布資料マスター";
+    if (/^ppt\/charts\//i.test(n)) return "グラフ";
+    if (/^ppt\/diagrams\//i.test(n)) return "SmartArt";
+    return "その他";
+  };
+  const roleOf = (n) => /^ppt\/(notesSlides|notesMasters)\//i.test(n) ? "ノート" : /^ppt\/handoutMasters\//i.test(n) ? "配布資料" : "スライド";
+  let unresolvedEaRefs = 0;
+  for (const part of scanTargets) {
+    const doc = await readXml(zip, part);
+    if (!doc) continue;
+    const where = whereOf(part);
+    const slide = where === null ? (slideNo.get(part) || null) : null;
+    const label = where === null && !slide ? "一覧にないスライド" : where;
+    const onSlides = where === null || where === "レイアウト" || where === "スライドマスター" || where === "グラフ" || where === "SmartArt";
+    const theme = themeByRole(roleOf(part));
+    for (const local of ["latin", "ea", "cs", "sym", "buFont"]) {
+      for (const el of byLocal(doc, local)) {
+        let name = el.getAttribute("typeface");
+        if (!name) continue;
+        if (name.startsWith("+")) {
+          const resolved = themeRef(name, theme);
+          if (!resolved) { if (/-ea$/.test(name)) unresolvedEaRefs++; continue; }
+          name = resolved;
+        }
+        add(name, label, slide, KIND[local], onSlides && (local === "ea" || local === "sym" || local === "buFont"));
+      }
+    }
+  }
+
+  // アプリ情報
+  let appName = "";
+  const app = await readXml(zip, "docProps/app.xml");
+  if (app) {
+    const a = byLocal(app, "Application")[0];
+    const v = byLocal(app, "AppVersion")[0];
+    appName = [a && a.textContent, v && v.textContent].filter(Boolean).join(" ");
+  }
+
+  // 所見と判定
+  const findings = [];
+  const fonts = [...usage.entries()].map(([name, u]) => ({ name, cat: classify(name), ...u }))
+    .sort((a, b) => order(a.cat) - order(b.cat) || b.count - a.count);
+  const hasEmbedded = embedded.length > 0 || fontFiles.length > 0;
+
+  if (hasEmbedded && subset) {
+    findings.push({ level: "bad", title: "フォントがサブセット(使用文字だけ)で埋め込まれています",
+      body: "文字化けの原因として最も疑わしい設定です。表示時は不完全な埋め込みフォントが使われ、編集すると手元のフォントで正しく見える、という症状が出やすくなります。",
+      fix: "PowerPointの保存設定で「ファイルにフォントを埋め込む」をオフにし、フォントを游ゴシックなどに置き換えてから別名で保存してください。" });
+  } else if (hasEmbedded) {
+    findings.push({ level: "warn", title: "フォントが埋め込まれています(全文字)",
+      body: "サブセットではないため化けにくい設定ですが、埋め込み元のフォントとMac側のフォントが競合することがあります。ファイルサイズも大きくなります。",
+      fix: "両OSにあるフォントで作っているなら、埋め込みをオフにして保存し直すのが確実です。" });
+  } else if (embedFlag) {
+    // saveSubsetFonts は PowerPoint の既定で付くことが多いので、埋め込みがオンのときだけ知らせる
+    findings.push({ level: "info", title: "埋め込みの設定は残っていますが、フォント本体は含まれていません",
+      body: "現在のファイルに埋め込みフォントはないため、この設定自体は文字化けの原因になりません。",
+      fix: "次に保存するときに埋め込まれないよう、保存設定の「ファイルにフォントを埋め込む」をオフにしておくと安心です。" });
+  }
+  if (orphanFiles.length) {
+    findings.push({ level: "warn", title: "一覧に載っていないフォントデータがあります",
+      body: `ファイルの中に${orphanFiles.length}個のフォントデータが残っています。過去の保存で埋め込まれたものが残っている可能性があります。`,
+      fix: "埋め込みをオフにして別名で保存し直すと整理されます。" });
+  }
+  const webFonts = fonts.filter((f) => f.cat === "web");
+  if (webFonts.length) {
+    findings.push({ level: "warn", title: "Googleスライド由来のWebフォントが使われています",
+      body: `${webFonts.map((f) => f.name).join("、")} はWebフォントのため、Macに同じフォントがないと別のフォントで描画されます。`,
+      fix: "下の「修正して別名で保存」でまとめて置き換えられます。PowerPointで直す場合は、「フォントの置換」でメイリオなどに置き換えてください。Googleスライドで作った場合も、書き出したpptxをPowerPointで置換してから配布するのが確実です。" });
+  }
+  const eaMissing = mainTheme && mainTheme.minor && !mainTheme.minor.ea && !mainTheme.minor.jpan;
+  if (eaMissing) {
+    findings.push({ level: "info", title: "テーマに日本語フォントが指定されていません",
+      body: "本文の日本語はOSごとの既定フォントで表示されるため、WindowsとMacで見た目が変わります。",
+      fix: "スライドマスターのフォント設定で、日本語用のフォントに游ゴシックを指定すると見た目がそろいます。" });
+  }
+  const winjpFonts = fonts.filter((f) => f.cat === "winjp");
+  const winjpImpact = winjpFonts.filter((f) => f.impact);
+  const winjpMinor = winjpFonts.filter((f) => !f.impact);
+  if (winjpImpact.length) {
+    const themeJa = [];
+    for (const t of themes) {
+      if (t.role !== "スライド") continue;
+      for (const set of [t.major, t.minor]) {
+        const ja = set && (set.ea || set.jpan);
+        if (ja && classify(ja) === "winjp" && !themeJa.includes(ja)) themeJa.push(ja);
+      }
+    }
+    // テーマにだけ残っている場合(フォントの置換で本文は直したが、テーマの定義が残っている状態)
+    const onlyTheme = winjpImpact.every((f) => f.slides.size === 0) && themeJa.length > 0;
+    const THEME_FIX = "［スライド マスター］タブの［フォント］→［フォントのカスタマイズ］で、見出しと本文の英数字用、日本語用のフォントをメイリオなどに変えてください。";
+    if (onlyTheme) {
+      findings.push({ level: "warn", title: "テーマにMacにない可能性が高い日本語フォントが残っています",
+        body: `スライドの文字には別のフォントが指定されていますが、テーマの既定フォントに ${themeJa.join("、")} が残っています。今は正常に見えても、新しくテキストボックスやスライドを追加すると、そこにこのフォントが使われてMacで□(豆腐)になることがあります。`,
+        fix: "「フォントの置換」ではテーマの既定フォントは変わりません。" + THEME_FIX });
+    } else {
+      findings.push({ level: "warn", title: "Macにない可能性が高い日本語フォントが使われています",
+        body: `${winjpImpact.map((f) => f.name).join("、")} はWindowsに入っている日本語フォントです。Macにこのフォントがないと、日本語を含まない別のフォントで代わりに表示されて、文字が□(豆腐)になることがあります。テキストをクリックして編集すると正しく見えるのが特徴です。` +
+          (themeJa.length ? ` テーマの既定フォントにも ${themeJa.join("、")} が指定されています。` : ""),
+        fix: "下の「修正して別名で保存」で、テーマも含めてまとめて置き換えられます。PowerPointで直す場合は、「フォントの置換」でOffice for Macにも入っているメイリオなどに置き換えてください。" +
+          (themeJa.length ? "「フォントの置換」ではテーマの既定フォントは変わらないので、" + THEME_FIX : "") +
+          " フォントを変えたくない場合は、保存設定で「すべての文字を埋め込む」を選んで埋め込むか、受け取る側のMacにそのフォントをインストールする方法もあります。" });
+    }
+  }
+  if (winjpMinor.length) {
+    const detail = winjpMinor.map((f) => `${f.name}(${[...f.kinds].join("・")}用、${whereText(f)})`).join("、");
+    findings.push({ level: "info", title: "日本語の表示に影響しにくい場所に、Windowsの日本語フォントが残っています",
+      body: `${detail} が残っています。英数字用の指定は代わりのフォントでも英数字を表示できます。その他の言語用の指定はアラビア語やタイ語などの文字に使う設定で、日本語には使われません。ノートや配布資料の指定は、スライドの表示には影響しません。`,
+      fix: "そのままでもスライドの表示には問題ない見込みです。ノートや配布資料も整えたい場合は、［表示］→［ノート マスター］や［配布資料マスター］の［フォント］で変えてください。" });
+  }
+  const winFonts = fonts.filter((f) => f.cat === "win");
+  if (winFonts.length) {
+    findings.push({ level: "info", title: "Windows向けの英数字フォントが使われています",
+      body: `${winFonts.map((f) => f.name).join("、")} はMacに入っていない場合があり、その場合は別のフォントで表示されます。英数字用のフォントなので、多くの場合は見た目が変わる程度です。`,
+      fix: "Macで見た目をそろえたい場合は、Arialや游ゴシックへの置き換えを検討してください。" });
+  }
+  const macFonts = fonts.filter((f) => f.cat === "mac");
+  if (macFonts.length) {
+    findings.push({ level: "info", title: "Mac向けのフォントが使われています",
+      body: `${macFonts.map((f) => f.name).join("、")} はWindowsに入っていないため、Windowsでは別のフォントで表示されます。`,
+      fix: "Windowsの受講者もいる場合は、游ゴシックへの置き換えを検討してください。" });
+  }
+  const unknown = fonts.filter((f) => f.cat === "unknown");
+  if (unknown.length) {
+    findings.push({ level: "info", title: "このツールに登録されていないフォントがあります",
+      body: `${unknown.map((f) => f.name).join("、")} が配布先にあるかは判定できませんでした。`,
+      fix: "配布先と同じOSで一度開いて表示を確認してください。" });
+  }
+  if (!findings.some((f) => f.level === "bad" || f.level === "warn")) {
+    findings.unshift({ level: "ok", title: "文字化けの原因になりやすい設定は見つかりませんでした",
+      body: "フォントの埋め込みもGoogleスライド由来のWebフォントもありません。", fix: "" });
+  }
+
+  const verdict = findings.some((f) => f.level === "bad") ? "bad" : findings.some((f) => f.level === "warn") ? "warn" : "ok";
+  return {
+    zip, presPart,
+    fileName: file.name, fileSize: file.size, slideCount: slideNo.size, appName,
+    subset, embedFlag, embedded, fontFiles, fontBytes, themes, mainTheme, fonts, findings, verdict, unresolvedEaRefs,
+  };
+}
+
+function order(cat) { return { winjp: 0, web: 1, unknown: 2, win: 3, mac: 4, office: 5, safe: 6 }[cat]; }
+function naturalSort(a, b) { return a.localeCompare(b, undefined, { numeric: true }); }
+
+/* ===== 表示 ===== */
+const VERDICT = {
+  ok:   { label: "問題なし", cls: "v-ok" },
+  warn: { label: "要注意",   cls: "v-warn" },
+  bad:  { label: "要修正",   cls: "v-bad" },
+};
+const LEVEL_LABEL = { ok: "OK", info: "確認", warn: "要注意", bad: "要修正" };
+
+function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") el.className = v; else el.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+const fmtBytes = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+
+function ranges(nums) {
+  const s = [...nums].sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let j = i;
+    while (j + 1 < s.length && s[j + 1] === s[j] + 1) j++;
+    out.push(i === j ? `${s[i]}` : `${s[i]}〜${s[j]}`);
+    i = j;
+  }
+  return out.join(", ");
+}
+function whereText(f) {
+  const parts = [];
+  if (f.slides.size) parts.push(`スライド ${ranges(f.slides)}`);
+  parts.push(...f.where);
+  return parts.join(" / ");
+}
+
+function renderResult(r, opts = {}) {
+  const v = VERDICT[r.verdict];
+  const meta = [opts.after ? "修正後のファイル" : null, fmtBytes(r.fileSize), r.slideCount ? `${r.slideCount}枚` : null, r.appName ? `作成 ${r.appName}` : null].filter(Boolean).join("  ·  ");
+  const copyBtn = h("button", { type: "button" }, "結果をテキストでコピー");
+  copyBtn.addEventListener("click", async () => {
+    copyBtn.textContent = (await copyText(toText(r))) ? "コピーしました" : "コピーできませんでした";
+    setTimeout(() => (copyBtn.textContent = "結果をテキストでコピー"), 1800);
+  });
+
+  const card = h("article", { class: "card" },
+    h("div", { class: "card-head" },
+      h("span", { class: `verdict ${v.cls}` }, v.label),
+      h("h2", {}, r.fileName),
+      copyBtn,
+      h("div", { class: "meta" }, meta)),
+  );
+
+  // 所見
+  card.append(h("section", { class: "block" },
+    h("h3", {}, "診断結果と対処"),
+    r.findings.map((f) => h("div", { class: `finding l-${f.level}` },
+      h("b", {}, `[${LEVEL_LABEL[f.level]}] ${f.title}`),
+      h("p", {}, f.body),
+      f.fix ? h("p", { class: "fix" }, `対処 ${f.fix}`) : null))));
+
+  // 修正
+  if (!opts.after) {
+    const repairBlock = renderRepair(r, card);
+    if (repairBlock) card.append(repairBlock);
+  }
+
+  // 埋め込み
+  const embBlock = h("section", { class: "block" }, h("h3", {}, "フォントの埋め込み"));
+  if (!r.embedded.length && !r.fontFiles.length) {
+    embBlock.append(h("p", { class: "empty" }, "埋め込まれたフォントはありません。"));
+  } else {
+    embBlock.append(h("p", { class: "empty" },
+      `埋め込み方式 ${r.subset ? "使用文字だけ(サブセット)" : "全文字"}  ·  フォントデータ ${r.fontFiles.length}個 合計 ${fmtBytes(r.fontBytes)}`));
+    if (r.embedded.length) {
+      embBlock.append(h("div", { class: "scroll" }, h("table", {},
+        h("thead", {}, h("tr", {}, h("th", {}, "フォント"), h("th", {}, "スタイル"), h("th", { class: "num" }, "サイズ"))),
+        h("tbody", {}, r.embedded.map((e) => h("tr", {},
+          h("td", { class: "name" }, e.name), h("td", {}, e.styles.join("、") || "不明"), h("td", { class: "num" }, fmtBytes(e.bytes))))))));
+    }
+  }
+  card.append(embBlock);
+
+  // テーマ
+  const t = r.mainTheme;
+  const themeBlock = h("section", { class: "block" }, h("h3", {}, "テーマの既定フォント"));
+  if (!t) {
+    themeBlock.append(h("p", { class: "empty" }, "テーマ情報が見つかりませんでした。"));
+  } else {
+    const show = (v) => v || "指定なし";
+    const ja = (set) => set ? show(set.ea || set.jpan) : "指定なし";
+    themeBlock.append(h("dl", { class: "theme-grid" },
+      h("dt", {}, "見出し 英数字"), h("dd", {}, show(t.major && t.major.latin)),
+      h("dt", {}, "見出し 日本語"), h("dd", {}, ja(t.major)),
+      h("dt", {}, "本文 英数字"), h("dd", {}, show(t.minor && t.minor.latin)),
+      h("dt", {}, "本文 日本語"), h("dd", {}, ja(t.minor))));
+    if (r.themes.length > 1) themeBlock.append(h("p", { class: "empty" }, `このファイルには${r.themes.length}個のテーマがあります。表は最初のスライドマスターのテーマです。`));
+  }
+  card.append(themeBlock);
+
+  // 使用フォント一覧
+  const fontBlock = h("section", { class: "block" }, h("h3", {}, "使われているフォント"));
+  if (!r.fonts.length) {
+    fontBlock.append(h("p", { class: "empty" }, "フォントの指定は見つかりませんでした。"));
+  } else {
+    fontBlock.append(h("div", { class: "scroll" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "フォント"), h("th", {}, "分類"), h("th", {}, "用途"), h("th", {}, "使用箇所"), h("th", { class: "num hide-sm" }, "回数"))),
+      h("tbody", {}, r.fonts.map((f) => h("tr", {},
+        h("td", { class: "name" }, f.name),
+        h("td", {}, h("span", { class: `tag ${CAT[f.cat].cls}` }, CAT[f.cat].label)),
+        h("td", { class: "where" }, [...f.kinds].join("・")),
+        h("td", { class: "where" }, whereText(f)),
+        h("td", { class: "num hide-sm" }, f.count)))))));
+  }
+  card.append(fontBlock);
+  return card;
+}
+
+function renderRepair(r, card) {
+  const targets = r.fonts.filter((f) => f.cat === "winjp" || f.cat === "web");
+  const hasEmbedded = r.embedded.length > 0 || r.fontFiles.length > 0;
+  if (!targets.length && !hasEmbedded) return null;
+
+  const rows = targets.map((f) => {
+    const check = h("input", { type: "checkbox", "aria-label": `${f.name}を置き換える` });
+    check.checked = true;
+    const select = h("select", { "aria-label": `${f.name}の置き換え先` },
+      REPLACE_OPTIONS.map((o) => h("option", { value: o }, o)));
+    select.value = defaultReplacement(f.name, f.cat);
+    check.addEventListener("change", () => (select.disabled = !check.checked));
+    return { f, check, select };
+  });
+  const embedCheck = h("input", { type: "checkbox" });
+  embedCheck.checked = r.subset;
+
+  const status = h("p", { class: "repair-status", role: "status", "aria-live": "polite" });
+  const base = r.fileName.replace(/\.(pptx|potx|ppsx)$/i, "");
+  const btn = h("button", { type: "button", class: "primary" }, "修正して別名で保存");
+  btn.addEventListener("click", async () => {
+    const map = new Map(rows.filter((x) => x.check.checked).map((x) => [x.f.name, x.select.value]));
+    const removeEmbedded = hasEmbedded && embedCheck.checked;
+    if (!map.size && !removeEmbedded) { status.textContent = "修正する項目が選ばれていません。"; return; }
+    const suggestedName = `${base}_fixed.pptx`;
+    const target = await pickSaveTarget(suggestedName);
+    if (target.kind === "cancel") { status.textContent = "保存をキャンセルしました。"; return; }
+    btn.disabled = true;
+    status.textContent = "修正しています…";
+    try {
+      const { bytes, replaced } = await repairPptx(r, map, removeEmbedded);
+      const savedName = await writeToTarget(target, bytes, suggestedName);
+      const where = target.kind === "download" ? "ブラウザのダウンロード先に" : "";
+      const done = [replaced ? `フォントの指定を${replaced}か所置き換えました。` : "", removeEmbedded ? "埋め込みフォントを外しました。" : ""].join("");
+      status.textContent = `${where}${savedName} として保存しました。${done}` +
+        (replaced ? "フォントを変えると文字の幅や行の高さが変わるので、PowerPointで開いて、文字のはみ出しや改行のずれがないか確認してください。" : "") +
+        "下に修正後のファイルの診断結果を表示しています。";
+      const after = await analyze(new File([bytes], savedName, { type: PPTX_MIME }));
+      card.after(renderResult(after, { after: true }));
+    } catch (e) {
+      status.textContent = e instanceof UserError ? e.message : "修正中にエラーが発生しました。元のファイルは変更されていません。";
+      if (!(e instanceof UserError)) console.error(e);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  return h("section", { class: "block repair" },
+    h("h3", {}, "修正して別名で保存"),
+    h("p", { class: "empty" }, "元のファイルは変更しません。修正したファイルを新しいファイルとして保存します。"),
+    targets.length ? h("div", { class: "scroll" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "置き換える"), h("th", {}, "元のフォント"), h("th", {}, "置き換え先"))),
+      h("tbody", {}, rows.map((x) => h("tr", {},
+        h("td", {}, x.check),
+        h("td", { class: "name" }, x.f.name, " ", h("span", { class: `tag ${CAT[x.f.cat].cls}` }, CAT[x.f.cat].label)),
+        h("td", {}, x.select)))))) : null,
+    hasEmbedded ? h("label", { class: "opt" }, embedCheck, ` 埋め込みフォントを外す（${r.subset ? "サブセット埋め込みのため外すのがおすすめです" : "全文字の埋め込みです。相手のPCにないフォントを使っている場合は外さないでください"}）`) : null,
+    h("p", { class: "empty" }, "置き換え先のメイリオは、Office for Macにも入っていて、Macで正しく表示されることを確認したフォントです。"),
+    h("div", { class: "repair-actions" }, btn),
+    status);
+}
+
+function toText(r) {
+  const lines = [];
+  lines.push(`pptx フォント診断 ${r.fileName}`);
+  lines.push(`判定 ${VERDICT[r.verdict].label}`);
+  lines.push("");
+  for (const f of r.findings) {
+    lines.push(`[${LEVEL_LABEL[f.level]}] ${f.title}`);
+    if (f.fix) lines.push(`  対処 ${f.fix}`);
+  }
+  lines.push("");
+  lines.push("埋め込みフォント");
+  if (!r.embedded.length && !r.fontFiles.length) lines.push("  なし");
+  else {
+    lines.push(`  方式 ${r.subset ? "サブセット" : "全文字"}`);
+    for (const e of r.embedded) lines.push(`  ${e.name} (${e.styles.join("、")})`);
+  }
+  lines.push("");
+  lines.push("使われているフォント");
+  for (const f of r.fonts) lines.push(`  ${f.name} [${CAT[f.cat].label}] ${[...f.kinds].join("・")}用 ${whereText(f)}`);
+  return lines.join("\n");
+}
+
+// file:// で開いたときに Clipboard API が使えないブラウザ向けの代替手段も用意する
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  try {
+    const ta = h("textarea", { readonly: "", style: "position:fixed;left:-9999px;top:0" });
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch { return false; }
+}
+
+function renderError(name, msg) {
+  return h("article", { class: "card" },
+    h("div", { class: "card-head" }, h("span", { class: "verdict v-info" }, "確認できません"), h("h2", {}, name)),
+    h("div", { class: "error" }, msg));
+}
+
+/* ===== 入力 ===== */
+const drop = document.getElementById("drop");
+const input = document.getElementById("file");
+const results = document.getElementById("results");
+const statusEl = document.getElementById("status");
+const clearBtn = document.getElementById("clear");
+
+if (typeof DecompressionStream === "undefined") {
+  statusEl.textContent = "このブラウザは古いため使えません。最新のChrome、Edge、Safari、Firefoxで開いてください。";
+}
+
+async function handle(files) {
+  const list = [...files];
+  if (!list.length) return;
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    statusEl.textContent = `解析中 ${f.name} (${i + 1}/${list.length})`;
+    let card;
+    try {
+      card = renderResult(await analyze(f));
+    } catch (e) {
+      card = renderError(f.name, e instanceof UserError ? e.message : "解析中にエラーが発生しました。ファイルが壊れている可能性があります。");
+      if (!(e instanceof UserError)) console.error(e);
+    }
+    results.prepend(card);
+  }
+  statusEl.textContent = `${list.length}件のファイルを診断しました`;
+  clearBtn.hidden = false;
+}
+
+input.addEventListener("change", () => { handle(input.files); input.value = ""; });
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => handle(e.dataTransfer.files));
+// ドロップ先を外したときにブラウザがファイルを開いてしまうのを防ぐ
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
+clearBtn.addEventListener("click", () => { results.replaceChildren(); statusEl.textContent = ""; clearBtn.hidden = true; });
+</script>
+</body>
+</html>
